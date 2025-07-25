@@ -1,0 +1,1979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Medicine Monitor</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- Font Awesome CDN for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f3f4f6; /* Light gray background */
+            color: #1f2937; /* Dark gray text */
+        }
+        .dark body {
+            background-color: #111827; /* Dark mode background */
+            color: #f9fafb; /* Light text for dark mode */
+        }
+        .rounded-xl {
+            border-radius: 1rem; /* Larger rounded corners */
+        }
+        .shadow-2xl {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Stronger shadow */
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Quantity flash effect */
+        .quantity-flash {
+            transition: color 0.3s ease-in-out;
+            color: #ef4444; /* Red color for flash */
+        }
+        .dark .quantity-flash {
+            color: #f87171; /* Lighter red for dark mode flash */
+        }
+        /* Styles for marked/taken dose buttons */
+        .dose-taken-green {
+            background-color: #16a34a; /* Deeper green */
+        }
+        .dose-taken-yellow {
+            background-color: #ca8a04; /* Deeper yellow */
+        }
+        .dose-taken-red {
+            background-color: #b91c1c; /* Deeper red */
+        }
+
+        /* Custom Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .dark .modal-content {
+            background-color: #1f2937;
+            color: #f9fafb;
+        }
+
+        /* Print specific styles */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .printable-content, .printable-content * {
+                visibility: visible;
+            }
+            .printable-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 1rem;
+            }
+            /* Adjust font sizes for print */
+            .printable-content h1 {
+                font-size: 24pt;
+                margin-bottom: 10px;
+            }
+            .printable-content h2 {
+                font-size: 18pt;
+                margin-top: 20px;
+                margin-bottom: 10px;
+            }
+            .printable-content h3 {
+                font-size: 16pt;
+                margin-bottom: 10px;
+            }
+            .printable-content p, .printable-content li, .printable-content td, .printable-content span {
+                font-size: 10pt; /* Slightly smaller for tables */
+                line-height: 1.3;
+            }
+            .printable-content table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 0.5rem;
+                margin-bottom: 1rem;
+            }
+            .printable-content th, .printable-content td {
+                border: 1px solid #ccc;
+                padding: 6px; /* Smaller padding for table cells */
+                text-align: left;
+                vertical-align: top; /* Align content to top */
+                word-break: normal; /* Ensure words don't break unless explicitly needed */
+            }
+            .printable-content th {
+                background-color: #f2f2f2;
+                font-weight: bold;
+                white-space: nowrap; /* Prevent text wrapping in table headers */
+            }
+            .printable-content td.dose-status { /* New class for dose status cells */
+                white-space: nowrap; /* Prevent wrapping of [ X ] or [   ] */
+                text-align: center; /* Center the content */
+            }
+            .medicine-name-row td { background-color: #e6e6e6; font-weight: bold; padding-top: 15px; }
+            .dose-time-row td:first-child { padding-left: 20px; }
+            .footer { margin-top: 30px; font-size: 9pt; text-align: right; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div id="app-container" class="w-full max-w-lg md:max-w-xl lg:max-w-2xl">
+        <!-- Content will be rendered here by JavaScript -->
+        <div class="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+            <p class="text-lg font-semibold">Loading application...</p>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Confirmations -->
+    <div id="custom-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <p id="modal-message" class="text-lg mb-6"></p>
+            <div class="flex justify-center gap-4">
+                <button id="modal-confirm-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200">
+                    <i class="fas fa-check mr-2"></i>Confirm
+                </button>
+                <button id="modal-cancel-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200">
+                    <i class="fas fa-times mr-2"></i>Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Options Modal -->
+    <div id="print-options-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Print Options</h3>
+            <div class="mb-4 text-left">
+                <label class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                    Select Print Range:
+                </label>
+                <div class="flex items-center mb-2">
+                    <input type="radio" id="print-weekly" name="print-range" value="weekly" class="mr-2" checked>
+                    <label for="print-weekly" class="text-gray-700 dark:text-gray-200">Weekly</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="radio" id="print-monthly" name="print-range" value="monthly" class="mr-2">
+                    <label for="print-monthly" class="text-gray-700 dark:text-gray-200">Monthly</label>
+                </div>
+            </div>
+            <div class="mb-4 text-left" id="weekly-start-date-container">
+                <label for="weekly-start-date" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                    Start Date for Weekly Print:
+                </label>
+                <input
+                    type="text"
+                    id="weekly-start-date"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                    value=""
+                    placeholder="YYYY-MM-DD"
+                    data-date-input
+                />
+            </div>
+            <div class="mb-6 text-left">
+                <label for="print-font-size" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                    Base Font Size (pt):
+                </label>
+                <input
+                    type="number"
+                    id="print-font-size"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                    value="10"
+                    min="8"
+                    max="14"
+                />
+            </div>
+            <div class="flex justify-center gap-4">
+                <button id="confirm-print-options-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200">
+                    <i class="fas fa-print mr-2"></i>Print
+                </button>
+                <button id="cancel-print-options-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200">
+                    <i class="fas fa-times mr-2"></i>Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script>
+        // Global state variables for the application
+        let patients = [];
+        let selectedPatient = null;
+        let medicines = []; // Medicines for the currently selected patient
+        let selectedMedicineForDetail = null; // Used for medicine detail view and edit form
+        let message = ''; // User feedback messages
+        let isAppReady = false; // Tracks if initial data loading is complete
+        let isDarkMode = false; // Tracks dark mode state
+        let patientSearchQuery = ''; // For searching patients
+
+        // Global facility information
+        let globalFacilityName = '';
+        let globalAddress = '';
+        let globalFacilityNumber = '';
+
+        let currentView = 'dashboard'; // New: Controls the current active view (e.g., 'dashboard', 'patientList', 'addPatient')
+
+        // Helper function to generate unique IDs (similar to Firebase's auto-IDs)
+        const generateUniqueId = () => {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        };
+
+        // Helper function to format date as YYYY-MM-DD
+        const getFormattedDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        // --- Dark Mode Functions ---
+        const applyDarkMode = (enable) => {
+            if (enable) {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('darkMode', 'disabled');
+            }
+            isDarkMode = enable;
+        };
+
+        const toggleDarkMode = () => {
+            applyDarkMode(!isDarkMode);
+            renderApp(); // Re-render to update the button text
+        };
+
+
+        // --- Custom Modal Functions ---
+        let resolveModalPromise;
+
+        const showCustomConfirm = (msg) => {
+            const modal = document.getElementById('custom-modal');
+            const modalMessage = document.getElementById('modal-message');
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+
+            modalMessage.textContent = msg;
+            modal.classList.remove('hidden');
+
+            return new Promise((resolve) => {
+                resolveModalPromise = resolve;
+
+                confirmBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolveModalPromise(true);
+                };
+
+                cancelBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    resolveModalPromise(false);
+                };
+            });
+        };
+
+        const showPrintOptionsModal = () => {
+            const modal = document.getElementById('print-options-modal');
+            const weeklyStartDateContainer = document.getElementById('weekly-start-date-container');
+            const printWeeklyRadio = document.getElementById('print-weekly');
+            const printMonthlyRadio = document.getElementById('print-monthly');
+            const weeklyStartDateInput = document.getElementById('weekly-start-date');
+
+            modal.classList.remove('hidden');
+
+            // Set default values
+            printWeeklyRadio.checked = true;
+            document.getElementById('print-font-size').value = 10; // Default font size
+            weeklyStartDateInput.value = getFormattedDate(new Date()); // Default to today's date
+
+            // Initialize Flatpickr for the new date input
+            flatpickr(weeklyStartDateInput, {
+                dateFormat: "Y-m-d",
+                allowInput: true,
+            });
+
+            // Show/hide weekly start date based on print type selection
+            const toggleWeeklyStartDateVisibility = () => {
+                if (printWeeklyRadio.checked) {
+                    weeklyStartDateContainer.classList.remove('hidden');
+                } else {
+                    weeklyStartDateContainer.classList.add('hidden');
+                }
+            };
+
+            printWeeklyRadio.onchange = toggleWeeklyStartDateVisibility;
+            printMonthlyRadio.onchange = toggleWeeklyStartDateVisibility;
+            toggleWeeklyStartDateVisibility(); // Initial call to set visibility
+
+            return new Promise((resolve) => {
+                document.getElementById('confirm-print-options-btn').onclick = () => {
+                    const printType = document.querySelector('input[name="print-range"]:checked').value;
+                    const baseFontSize = parseInt(document.getElementById('print-font-size').value, 10);
+                    const weeklyStartDate = weeklyStartDateInput.value; // Get the selected date
+
+                    modal.classList.add('hidden');
+                    resolve({ printType, baseFontSize, weeklyStartDate });
+                };
+                document.getElementById('cancel-print-options-btn').onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(null); // User cancelled
+                };
+            });
+        };
+
+
+        // --- Local Storage Data Handling ---
+
+        // Loads all application data from local storage
+        const loadData = () => {
+            try {
+                const storedData = localStorage.getItem('medicineTrackerData');
+                if (storedData) {
+                    const parsedData = JSON.parse(storedData);
+                    patients = parsedData.patients || [];
+                    globalFacilityName = parsedData.globalFacilityName || '';
+                    globalAddress = parsedData.globalAddress || '';
+                    globalFacilityNumber = parsedData.globalFacilityNumber || '';
+
+                    // Load dark mode preference
+                    isDarkMode = localStorage.getItem('darkMode') === 'enabled';
+
+
+                    // Re-select patient if ID matches after reload
+                    if (selectedPatient && patients.find(p => p.id === selectedPatient.id)) {
+                        selectedPatient = patients.find(p => p.id === selectedPatient.id);
+                        medicines = selectedPatient ? (selectedPatient.medicines || []) : []; // Update medicines for selected patient
+                        // Re-select medicine if ID matches after reload
+                        if (selectedMedicineForDetail && medicines.find(m => m.id === selectedMedicineForDetail.id)) {
+                            selectedMedicineForDetail = medicines.find(m => m.id === selectedMedicineForDetail.id);
+                        } else {
+                            selectedMedicineForDetail = null;
+                        }
+                    } else {
+                        selectedPatient = null;
+                        medicines = [];
+                        selectedMedicineForDetail = null;
+                    }
+                } else {
+                    // Initialize with empty data if nothing found
+                    patients = [];
+                    globalFacilityName = '';
+                    globalAddress = '';
+                    globalFacilityNumber = '';
+                    isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches; // Default to system preference
+                }
+            } catch (e) {
+                console.error("Error loading data from local storage:", e);
+                patients = []; // Reset on error
+                globalFacilityName = '';
+                globalAddress = '';
+                globalFacilityNumber = '';
+                isDarkMode = false; // Default to light mode on error
+                message = "Error loading saved data.";
+            }
+        };
+
+        // Saves all application data to local storage
+        const saveData = () => {
+            try {
+                const dataToStore = { patients, globalFacilityName, globalAddress, globalFacilityNumber };
+                localStorage.setItem('medicineTrackerData', JSON.stringify(dataToStore));
+            } catch (e) {
+                console.error("Error saving data to local storage:", e);
+                message = "Error saving data.";
+            }
+        };
+
+        // --- UI Rendering Functions ---
+
+        // Main function to update the UI based on current state
+        const renderApp = () => {
+            const appContainer = document.getElementById('app-container');
+            if (!appContainer) return;
+
+            let contentHtml = '';
+
+            // Apply dark mode before rendering content
+            applyDarkMode(isDarkMode);
+
+            if (!isAppReady) {
+                contentHtml = `
+                    <div class="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+                        <p class="text-lg font-semibold">Loading application...</p>
+                    </div>
+                `;
+            } else {
+                switch (currentView) {
+                    case 'dashboard':
+                        contentHtml = renderDashboard();
+                        break;
+                    case 'patientList':
+                        contentHtml = renderPatientList();
+                        break;
+                    case 'addPatient':
+                        contentHtml = renderAddPatientForm();
+                        break;
+                    case 'editPatient':
+                        contentHtml = renderEditPatientForm(selectedPatient);
+                        break;
+                    case 'patientDetail':
+                        contentHtml = renderPatientDetail(selectedPatient);
+                        break;
+                    case 'addMedicine':
+                        contentHtml = renderAddMedicineForm();
+                        break;
+                    case 'editMedicine':
+                        contentHtml = renderEditMedicineForm(selectedMedicineForDetail);
+                        break;
+                    case 'medicineDetail':
+                        contentHtml = renderMedicineDetail(selectedMedicineForDetail);
+                        break;
+                    case 'editGlobalFacility':
+                        contentHtml = renderEditGlobalFacilityForm();
+                        break;
+                    default:
+                        // Fallback to dashboard if currentView is somehow invalid
+                        currentView = 'dashboard';
+                        contentHtml = renderDashboard();
+                        break;
+                }
+            }
+
+
+            // The main wrapper for the app content
+            appContainer.innerHTML = `
+                <div class="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4 font-sans antialiased">
+                    <div class="w-full max-w-md md:max-w-lg lg:max-w-xl text-center mb-6 relative">
+                        <h1 class="text-4xl font-extrabold text-blue-700 dark:text-blue-400 mb-2">
+                            <i class="fas fa-hospital-user mr-2"></i> ${globalFacilityName || 'Patient Medicine Monitor'}
+                        </h1>
+                        <p class="text-lg text-gray-700 dark:text-gray-200 mb-1">
+                            ${globalFacilityName ? 'Patient Medicine Monitor' : ''}
+                        </p>
+                        ${globalAddress ? `<p class="text-md text-gray-600 dark:text-gray-300 mb-1">Address: <span class="font-medium">${globalAddress}</span></p>` : ''}
+                        ${globalFacilityNumber ? `<p class="text-md text-gray-600 dark:text-gray-300 mb-4">Facility Number: <span class="font-medium">${globalFacilityNumber}</span></p>` : ''}
+
+                        <button id="edit-global-facility-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-700 w-full mb-2">
+                            <i class="fas fa-hospital mr-2"></i> Edit Facility Details
+                        </button>
+                        <button id="dark-mode-toggle-btn" class="bg-gray-700 hover:bg-gray-800 dark:bg-gray-300 dark:hover:bg-gray-400 text-white dark:text-gray-900 font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-500 dark:focus:ring-gray-500 w-full">
+                            ${isDarkMode ? '<i class="fas fa-sun mr-2"></i> Switch to Light Mode' : '<i class="fas fa-moon mr-2"></i> Switch to Dark Mode'}
+                        </button>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md md:max-w-lg lg:max-w-xl text-center transform transition-all duration-300 hover:scale-105 relative">
+                        <div class="bg-gray-100 dark:bg-gray-700 p-6 rounded-lg shadow-inner mb-6 mt-6 w-full">
+                            ${contentHtml}
+                        </div>
+
+                        ${message ? `<p class="mt-4 text-sm text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 p-3 rounded-md animate-fade-in"><i class="fas fa-info-circle mr-2"></i>${message}</p>` : ''}
+                    </div>
+                </div>
+            `;
+
+            attachEventListeners();
+        };
+
+        // Attaches event listeners to dynamically rendered elements
+        const attachEventListeners = () => {
+            // Global Facility Edit Button
+            const editGlobalFacilityBtn = document.getElementById('edit-global-facility-btn');
+            if (editGlobalFacilityBtn) {
+                editGlobalFacilityBtn.onclick = () => {
+                    currentView = 'editGlobalFacility';
+                    renderApp();
+                };
+            }
+
+            // Dark Mode Toggle Button
+            const darkModeToggleBtn = document.getElementById('dark-mode-toggle-btn');
+            if (darkModeToggleBtn) {
+                darkModeToggleBtn.onclick = toggleDarkMode;
+            }
+
+            // Dashboard Buttons
+            const dashboardAddPatientBtn = document.getElementById('dashboard-add-patient-btn');
+            if (dashboardAddPatientBtn) {
+                dashboardAddPatientBtn.onclick = () => {
+                    currentView = 'addPatient';
+                    renderApp();
+                };
+            }
+            const dashboardViewPatientsBtn = document.getElementById('dashboard-view-patients-btn');
+            if (dashboardViewPatientsBtn) {
+                dashboardViewPatientsBtn.onclick = () => {
+                    currentView = 'patientList';
+                    renderApp();
+                };
+            }
+
+
+            // Patient List View
+            document.querySelectorAll('.patient-item').forEach(item => {
+                item.onclick = (e) => {
+                    const patientId = e.currentTarget.dataset.id;
+                    selectedPatient = patients.find(p => p.id === patientId);
+                    medicines = selectedPatient ? (selectedPatient.medicines || []) : []; // Update medicines for selected patient
+                    selectedMedicineForDetail = null; // Clear selected medicine when changing patient
+                    currentView = 'patientDetail';
+                    renderApp();
+                };
+            });
+            const addPatientBtn = document.getElementById('add-patient-btn'); // This is now on the patientList view
+            if (addPatientBtn) {
+                addPatientBtn.onclick = () => {
+                    currentView = 'addPatient';
+                    renderApp();
+                };
+            }
+            const patientListBackToDashboardBtn = document.getElementById('patient-list-back-to-dashboard-btn');
+            if (patientListBackToDashboardBtn) {
+                patientListBackToDashboardBtn.onclick = () => {
+                    currentView = 'dashboard';
+                    renderApp();
+                };
+            }
+
+
+            // Patient Search Input
+            const patientSearchInput = document.getElementById('patient-search-input');
+            if (patientSearchInput) {
+                patientSearchInput.oninput = (e) => {
+                    patientSearchQuery = e.target.value.toLowerCase();
+                    renderApp(); // Re-render to apply filter
+                };
+            }
+
+
+            // Patient Detail View
+            const patientDetailBackBtn = document.getElementById('patient-detail-back-btn');
+            if (patientDetailBackBtn) {
+                patientDetailBackBtn.onclick = () => {
+                    selectedPatient = null; // Deselect patient
+                    currentView = 'patientList'; // Go back to patient list
+                    renderApp();
+                };
+            }
+            const editPatientBtn = document.getElementById('edit-patient-btn');
+            if (editPatientBtn) {
+                editPatientBtn.onclick = () => {
+                    currentView = 'editPatient';
+                    renderApp();
+                };
+            }
+            const deletePatientBtn = document.getElementById('delete-patient-btn');
+            if (deletePatientBtn) {
+                deletePatientBtn.onclick = async () => {
+                    const confirmed = await showCustomConfirm(`Are you sure you want to delete patient "${selectedPatient.name}" and all their medicine data?`);
+                    if (confirmed) {
+                        handleDeletePatient(selectedPatient.id, selectedPatient.name);
+                    }
+                };
+            }
+            const addMedicineBtn = document.getElementById('add-medicine-btn');
+            if (addMedicineBtn) {
+                addMedicineBtn.onclick = () => {
+                    currentView = 'addMedicine';
+                    renderApp();
+                };
+            }
+            document.querySelectorAll('.medicine-item').forEach(item => {
+                item.onclick = (e) => {
+                    const medicineId = e.currentTarget.dataset.id;
+                    selectedMedicineForDetail = medicines.find(m => m.id === medicineId);
+                    currentView = 'medicineDetail';
+                    renderApp();
+                };
+            });
+
+            // Print Medication List Button - now shows options modal
+            const printMedicationListBtn = document.getElementById('print-medication-list-btn');
+            if (printMedicationListBtn) {
+                printMedicationListBtn.onclick = async () => {
+                    if (!selectedPatient) {
+                        message = "No patient selected to print medication list.";
+                        renderApp();
+                        return;
+                    }
+                    const options = await showPrintOptionsModal();
+                    if (options) {
+                        // Pass weeklyStartDate to the print function
+                        handlePrintMedicationList(selectedPatient, options.printType, options.baseFontSize, options.weeklyStartDate);
+                    }
+                };
+            }
+
+            // Add Patient Form
+            const addPatientForm = document.getElementById('add-patient-form');
+            if (addPatientForm) {
+                addPatientForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('patientName');
+                    const admissionDateInput = document.getElementById('admissionDate');
+                    handleAddPatient(nameInput.value, admissionDateInput.value);
+                };
+                document.getElementById('cancel-add-patient-btn').onclick = () => {
+                    currentView = 'patientList'; // Go back to patient list after canceling add
+                    renderApp();
+                };
+            }
+
+            // Edit Patient Form
+            const editPatientForm = document.getElementById('edit-patient-form');
+            if (editPatientForm) {
+                editPatientForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('editPatientName');
+                    const admissionDateInput = document.getElementById('editAdmissionDate');
+                    handleEditPatient(selectedPatient.id, nameInput.value, admissionDateInput.value);
+                };
+                document.getElementById('cancel-edit-patient-btn').onclick = () => {
+                    currentView = 'patientDetail'; // Go back to patient detail after canceling edit
+                    renderApp();
+                };
+            }
+
+            // Add/Edit Medicine Forms
+            const addMedicineForm = document.getElementById('add-medicine-form');
+            if (addMedicineForm) {
+                addMedicineForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('medicineName');
+                    const quantityInput = document.getElementById('initialQuantity');
+                    const dosageInput = document.getElementById('dosage');
+                    const expirationDateInput = document.getElementById('expirationDate');
+                    const dateFilledInput = document.getElementById('dateFilled');
+                    const dateStartedInput = document.getElementById('dateStarted');
+                    const prescribingPhysicianInput = document.getElementById('prescribingPhysician');
+                    const prescriptionNumberInput = document.getElementById('prescriptionNumber');
+                    const numberOfRefillsInput = document.getElementById('numberOfRefills');
+                    // Removed brandInput and lowStockThresholdInput
+                    handleAddMedicine(
+                        nameInput.value,
+                        quantityInput.value,
+                        dosageInput.value,
+                        expirationDateInput.value,
+                        dateFilledInput.value,
+                        dateStartedInput.value,
+                        prescribingPhysicianInput.value,
+                        prescriptionNumberInput.value,
+                        numberOfRefillsInput.value
+                        // Removed brand and lowStockThreshold arguments
+                    );
+                };
+                document.getElementById('cancel-add-medicine-btn').onclick = () => {
+                    currentView = 'patientDetail'; // Go back to patient detail after canceling add medicine
+                    renderApp();
+                };
+            }
+            const editMedicineForm = document.getElementById('edit-medicine-form');
+            if (editMedicineForm) {
+                editMedicineForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('editMedicineName');
+                    const quantityInput = document.getElementById('editInitialQuantity');
+                    const dosageInput = document.getElementById('editDosage');
+                    const expirationDateInput = document.getElementById('editExpirationDate');
+                    const dateFilledInput = document.getElementById('editDateFilled');
+                    const dateStartedInput = document.getElementById('editDateStarted');
+                    const prescribingPhysicianInput = document.getElementById('editPrescribingPhysician');
+                    const prescriptionNumberInput = document.getElementById('editPrescriptionNumber');
+                    const numberOfRefillsInput = document.getElementById('editNumberOfRefills');
+                    // Removed editBrandInput and editLowStockThresholdInput
+
+                    handleEditMedicine(
+                        selectedMedicineForDetail.id,
+                        nameInput.value,
+                        quantityInput.value,
+                        dosageInput.value,
+                        expirationDateInput.value,
+                        dateFilledInput.value,
+                        dateStartedInput.value,
+                        prescribingPhysicianInput.value,
+                        prescriptionNumberInput.value,
+                        numberOfRefillsInput.value
+                        // Removed newBrand and newLowStockThreshold arguments
+                    );
+                };
+                document.getElementById('cancel-edit-medicine-btn').onclick = () => {
+                    currentView = 'medicineDetail'; // Go back to medicine detail after canceling edit
+                    renderApp();
+                };
+                // New: Clear All Fields button for Edit Medicine form
+                document.getElementById('clear-edit-medicine-fields-btn').onclick = () => {
+                    handleClearEditMedicineFields();
+                };
+            }
+
+            // Medicine Detail View
+            const medicineDetailBackBtn = document.getElementById('medicine-detail-back-btn');
+            if (medicineDetailBackBtn) {
+                medicineDetailBackBtn.onclick = () => {
+                    selectedMedicineForDetail = null;
+                    currentView = 'patientDetail'; // Go back to patient's medicine list
+                    renderApp();
+                };
+            }
+            const editMedicineDetailBtn = document.getElementById('edit-medicine-detail-btn');
+            if (editMedicineDetailBtn) {
+                editMedicineDetailBtn.onclick = () => {
+                    currentView = 'editMedicine';
+                    renderApp();
+                };
+            }
+            const resetMedicineBtn = document.getElementById('reset-medicine-btn');
+            if (resetMedicineBtn) {
+                resetMedicineBtn.onclick = async () => {
+                    const confirmed = await showCustomConfirm(`Are you sure you want to reset "${selectedMedicineForDetail.name}" quantity to ${selectedMedicineForDetail.initialQuantity}?`);
+                    if (confirmed) {
+                        handleResetMedicine(selectedMedicineForDetail.id);
+                    }
+                };
+            }
+            const deleteMedicineBtn = document.getElementById('delete-medicine-btn');
+            if (deleteMedicineBtn) {
+                deleteMedicineBtn.onclick = async () => {
+                    const confirmed = await showCustomConfirm(`Are you sure you want to delete medicine "${selectedMedicineForDetail.name}"?`);
+                    if (confirmed) {
+                        handleDeleteMedicine(selectedMedicineForDetail.id, selectedMedicineForDetail.name);
+                    }
+                };
+            }
+
+            document.querySelectorAll('.dose-button').forEach(button => {
+                button.onclick = (e) => {
+                    const doseType = e.currentTarget.dataset.doseType;
+                    handleTakeDose(selectedMedicineForDetail.id, doseType);
+                };
+            });
+
+            // Global Facility Edit Form
+            const editGlobalFacilityForm = document.getElementById('edit-global-facility-form');
+            if (editGlobalFacilityForm) {
+                editGlobalFacilityForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const facilityNameInput = document.getElementById('globalFacilityNameInput');
+                    const addressInput = document.getElementById('globalAddressInput');
+                    const facilityNumberInput = document.getElementById('globalFacilityNumberInput');
+                    handleEditGlobalFacility(facilityNameInput.value, addressInput.value, facilityNumberInput.value);
+                };
+                document.getElementById('cancel-edit-global-facility-btn').onclick = () => {
+                    currentView = 'dashboard'; // Go back to dashboard after canceling edit
+                    renderApp();
+                };
+            }
+
+            // Initialize Flatpickr for all date input fields
+            document.querySelectorAll('[data-date-input]').forEach(input => {
+                flatpickr(input, {
+                    dateFormat: "Y-m-d", // Consistent date format
+                    allowInput: true, // Allow typing directly into the input field
+                    // You can add more options here if needed, e.g., minDate, maxDate
+                });
+            });
+        };
+
+        // --- Render Functions for different views ---
+
+        const renderDashboard = () => {
+            const lowStockMedicines = [];
+            patients.forEach(patient => {
+                patient.medicines.forEach(medicine => {
+                    // Check if lowStockThreshold exists and is a number before comparing
+                    if (typeof medicine.lowStockThreshold === 'number' && medicine.currentQuantity <= medicine.lowStockThreshold) {
+                        lowStockMedicines.push({ patientName: patient.name, medicineName: medicine.name, currentQuantity: medicine.currentQuantity, threshold: medicine.lowStockThreshold });
+                    }
+                });
+            });
+
+            return `
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Dashboard Overview</h2>
+
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner mb-6">
+                    <p class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Total Patients: <span class="text-blue-600 dark:text-blue-300 text-2xl">${patients.length}</span></p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-center gap-4 mb-6">
+                    <button id="dashboard-add-patient-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-700 w-full sm:w-auto">
+                        <i class="fas fa-user-plus mr-2"></i> Add New Patient
+                    </button>
+                    <button id="dashboard-view-patients-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-700 w-full sm:w-auto mt-2 sm:mt-0">
+                        <i class="fas fa-users mr-2"></i> View All Patients
+                    </button>
+                </div>
+            `;
+        };
+
+
+        const renderPatientList = () => {
+            return `
+                <button id="patient-list-back-to-dashboard-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </button>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4 mt-12 md:mt-0">Your Patients</h2>
+                <button id="add-patient-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-700 w-full mb-6">
+                    <i class="fas fa-user-plus mr-2"></i> Add New Patient
+                </button>
+                <input
+                    type="text"
+                    id="patient-search-input"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500 mb-4"
+                    placeholder="Search patients by name..."
+                    value="${patientSearchQuery}"
+                />
+                ${renderPatientListContent()}
+            `;
+        };
+
+        const renderPatientListContent = () => {
+            const filteredPatients = patients.filter(patient =>
+                patient.name.toLowerCase().includes(patientSearchQuery)
+            );
+
+            return `
+                ${filteredPatients.length > 0 ? `
+                    <ul class="list-none p-0 m-0">
+                        ${filteredPatients.map(patient => `
+                            <li data-id="${patient.id}" class="patient-item flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-md mb-3 transition-all duration-200 hover:shadow-lg cursor-pointer text-left">
+                                <div class="text-left">
+                                    <p class="text-lg font-semibold text-gray-900 dark:text-gray-100"><i class="fas fa-user mr-2"></i>${patient.name}</p>
+                                    ${patient.admissionDate ? `<p class="text-sm text-gray-600 dark:text-gray-300"><i class="fas fa-calendar-alt mr-2"></i>Admitted: ${patient.admissionDate}</p>` : ''}
+                                </div>
+                                <span class="text-blue-600 dark:text-blue-300 font-bold text-xl">&rarr;</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : `
+                    <p class="text-gray-600 dark:text-gray-300">No patients found matching your search, or no patients added yet. Click "Add New Patient" to get started!</p>
+                `}
+            `;
+        };
+
+
+        const renderAddPatientForm = () => {
+            const today = getFormattedDate(new Date());
+            return `
+                <button id="cancel-add-patient-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner mb-6 mt-12 md:mt-0">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Add New Patient</h2>
+                    <form id="add-patient-form">
+                        <div class="mb-4">
+                            <label for="patientName" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Patient Name:
+                            </label>
+                            <input
+                                type="text"
+                                id="patientName"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                required
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="admissionDate" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Admission Date:
+                            </label>
+                            <input
+                                type="text"
+                                id="admissionDate"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${today}"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="flex flex-col sm:flex-row justify-end gap-2">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto">
+                                <i class="fas fa-plus-circle mr-2"></i> Add Patient
+                            </button>
+                            <button type="button" id="cancel-add-patient-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto mt-2 sm:mt-0">
+                                <i class="fas fa-times-circle mr-2"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        };
+
+        const renderEditPatientForm = (patient) => {
+            return `
+                <button id="cancel-edit-patient-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner mb-6 mt-12 md:mt-0">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Edit Patient Details</h2>
+                    <form id="edit-patient-form">
+                        <div class="mb-4">
+                            <label for="editPatientName" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Patient Name:
+                            </label>
+                            <input
+                                type="text"
+                                id="editPatientName"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${patient.name}"
+                                required
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="editAdmissionDate" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Admission Date:
+                            </label>
+                            <input
+                                type="text"
+                                id="editAdmissionDate"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${patient.admissionDate || ''}"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="flex flex-col sm:flex-row justify-end gap-2">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto">
+                                <i class="fas fa-save mr-2"></i> Save Changes
+                            </button>
+                            <button type="button" id="cancel-edit-patient-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto mt-2 sm:mt-0">
+                                <i class="fas fa-times-circle mr-2"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        };
+
+        const renderEditGlobalFacilityForm = () => {
+            return `
+                <button id="cancel-edit-global-facility-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner mb-6 mt-12 md:mt-0">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Edit Facility Details</h2>
+                    <form id="edit-global-facility-form">
+                        <div class="mb-4">
+                            <label for="globalFacilityNameInput" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Facility Name:
+                            </label>
+                            <input
+                                type="text"
+                                id="globalFacilityNameInput"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${globalFacilityName}"
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="globalAddressInput" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Address:
+                            </label>
+                            <input
+                                type="text"
+                                id="globalAddressInput"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${globalAddress}"
+                            />
+                        </div>
+                        <div class="mb-6">
+                            <label for="globalFacilityNumberInput" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Facility Number:
+                            </label>
+                            <input
+                                type="text"
+                                id="globalFacilityNumberInput"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${globalFacilityNumber}"
+                            />
+                        </div>
+                        <div class="flex flex-col sm:flex-row justify-end gap-2">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto">
+                                <i class="fas fa-save mr-2"></i> Save Changes
+                            </button>
+                            <button type="button" id="cancel-edit-global-facility-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto mt-2 sm:mt-0">
+                                <i class="fas fa-times-circle mr-2"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        };
+
+
+        const renderPatientDetail = (patient) => {
+            return `
+                <button id="patient-detail-back-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <h1 class="text-3xl md:text-4xl font-extrabold text-blue-700 dark:text-blue-400 mb-6 mt-12 md:mt-0">
+                    ${patient.name}'s Medicines
+                </h1>
+
+                <div class="text-left bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow-inner mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Patient Information</h3>
+                    <p class="text-gray-700 dark:text-gray-200"><strong><i class="fas fa-user mr-2"></i>Patient Name:</strong> ${patient.name}</p>
+                    <p class="text-700 dark:text-gray-200"><strong><i class="fas fa-calendar-alt mr-2"></i>Admission Date:</strong> ${patient.admissionDate || 'N/A'}</p>
+                </div>
+
+                <button id="edit-patient-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-700 w-full mb-4">
+                    <i class="fas fa-edit mr-2"></i> Edit Patient Details
+                </button>
+
+                <button id="add-medicine-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-300 dark:focus:ring-purple-700 w-full mb-4">
+                    <i class="fas fa-pills mr-2"></i> Add New Medicine for ${patient.name}
+                </button>
+
+                <button id="print-medication-list-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-700 w-full mb-6">
+                    <i class="fas fa-print mr-2"></i> Print Medication List
+                </button>
+
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Current Medicines</h2>
+                ${medicines.length > 0 ? `
+                    <ul class="list-none p-0 m-0">
+                        ${medicines.map(medicine => `
+                            <li data-id="${medicine.id}" class="medicine-item flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-md mb-3 transition-all duration-200 hover:shadow-lg cursor-pointer">
+                                <div class="text-left">
+                                    <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                        <i class="fas fa-capsules mr-2"></i>${medicine.name}
+                                        ${typeof medicine.lowStockThreshold === 'number' && medicine.currentQuantity <= medicine.lowStockThreshold ? ` <span class="text-red-500 text-sm font-bold">(Low Stock!)</span>` : ''}
+                                    </p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300"><i class="fas fa-box-open mr-2"></i>Remaining: ${medicine.currentQuantity} ${medicine.dosage ? `(${medicine.dosage})` : ''}</p>
+                                </div>
+                                <span class="text-blue-600 dark:text-blue-300 font-bold text-xl">&rarr;</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : `
+                    <p class="text-gray-600 dark:text-gray-300">No medicines added for ${patient.name} yet. Click "Add New Medicine" to get started!</p>
+                `}
+
+                <button id="delete-patient-btn" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-300 dark:focus:ring-red-700 w-full mt-6">
+                    <i class="fas fa-trash-alt mr-2"></i> Delete Patient
+                </button>
+            `;
+        };
+
+        const renderAddMedicineForm = () => {
+            // Get today's date in YYYY-MM-DD format for default value
+            const today = getFormattedDate(new Date());
+
+            return `
+                <button id="cancel-add-medicine-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner mb-6 mt-12 md:mt-0">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Add New Medicine for ${selectedPatient?.name}</h2>
+                    <form id="add-medicine-form">
+                        <div class="mb-4">
+                            <label for="medicineName" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Medicine Name:
+                            </label>
+                            <input
+                                type="text"
+                                id="medicineName"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                required
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="initialQuantity" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Initial Quantity:
+                            </label>
+                            <input
+                                type="number"
+                                id="initialQuantity"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                min="1"
+                                required
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="dosage" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Dosage (e.g., "1 pill", "5ml"):
+                            </label>
+                            <input
+                                type="text"
+                                id="dosage"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="expirationDate" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Expiration Date:
+                            </label>
+                            <input
+                                type="text"
+                                id="expirationDate"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="dateFilled" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Date Filled:
+                            </label>
+                            <input
+                                type="text"
+                                id="dateFilled"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="dateStarted" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Date Started:
+                            </label>
+                            <input
+                                type="text"
+                                id="dateStarted"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${today}"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="prescribingPhysician" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Prescribing Physician:
+                            </label>
+                            <input
+                                type="text"
+                                id="prescribingPhysician"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="prescriptionNumber" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Prescription Number:
+                            </label>
+                            <input
+                                type="text"
+                                id="prescriptionNumber"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                            />
+                        </div>
+                        <div class="mb-6">
+                            <label for="numberOfRefills" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                No. of Refills:
+                            </label>
+                            <input
+                                type="number"
+                                id="numberOfRefills"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                min="0"
+                            />
+                        </div>
+                        <!-- Removed Brand and Low Stock Threshold fields -->
+                        <div class="flex flex-col sm:flex-row justify-end gap-2">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto">
+                                <i class="fas fa-plus-circle mr-2"></i> Add Medicine
+                            </button>
+                            <button type="button" id="cancel-add-medicine-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto mt-2 sm:mt-0">
+                                <i class="fas fa-times-circle mr-2"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        };
+
+        const renderEditMedicineForm = (medicine) => {
+            return `
+                <button id="cancel-edit-medicine-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-inner mb-6 mt-12 md:mt-0">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Edit Medicine</h2>
+                    <form id="edit-medicine-form">
+                        <div class="mb-4">
+                            <label for="editMedicineName" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Medicine Name:
+                            </label>
+                            <input
+                                type="text"
+                                id="editMedicineName"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.name}"
+                                required
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="editInitialQuantity" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Initial Quantity:
+                            </label>
+                            <input
+                                type="number"
+                                id="editInitialQuantity"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.initialQuantity}"
+                                min="1"
+                                required
+                            />
+                        </div>
+                        <div class="mb-6">
+                            <label for="editDosage" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Dosage (e.g., "1 pill", "5ml"):
+                            </label>
+                            <input
+                                type="text"
+                                id="editDosage"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.dosage || ''}"
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="editExpirationDate" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Expiration Date:
+                            </label>
+                            <input
+                                type="text"
+                                id="editExpirationDate"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.expirationDate || ''}"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="editDateFilled" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Date Filled:
+                            </label>
+                            <input
+                                type="text"
+                                id="editDateFilled"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.dateFilled || ''}"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="editDateStarted" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Date Started:
+                            </label>
+                            <input
+                                type="text"
+                                id="editDateStarted"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.dateStarted || ''}"
+                                placeholder="YYYY-MM-DD"
+                                data-date-input
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="editPrescribingPhysician" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Prescribing Physician:
+                            </label>
+                            <input
+                                type="text"
+                                id="editPrescribingPhysician"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.prescribingPhysician || ''}"
+                            />
+                        </div>
+                        <div class="mb-4">
+                            <label for="editPrescriptionNumber" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                Prescription Number:
+                            </label>
+                            <input
+                                type="text"
+                                id="editPrescriptionNumber"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.prescriptionNumber || ''}"
+                            />
+                        </div>
+                        <div class="mb-6">
+                            <label for="editNumberOfRefills" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+                                No. of Refills:
+                            </label>
+                            <input
+                                type="number"
+                                id="editNumberOfRefills"
+                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
+                                value="${medicine.numberOfRefills || ''}"
+                                min="0"
+                            />
+                        </div>
+                        <!-- Removed Brand and Low Stock Threshold fields -->
+                        <div class="flex flex-col sm:flex-row justify-end gap-2">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto">
+                                <i class="fas fa-save mr-2"></i> Save Changes
+                            </button>
+                            <button type="button" id="clear-edit-medicine-fields-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto mt-2 sm:mt-0">
+                                <i class="fas fa-eraser mr-2"></i> Clear All Fields
+                            </button>
+                            <button type="button" id="cancel-edit-medicine-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 w-full sm:w-auto mt-2 sm:mt-0">
+                                <i class="fas fa-times-circle mr-2"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        };
+
+        const renderMedicineDetail = (medicine) => {
+            const today = getFormattedDate(new Date());
+            const dailyDoses = medicine.dailyLog[today] || {};
+
+            // Helper to get button classes and text based on dose type and whether it's taken
+            const getDoseButtonContent = (doseType, label, baseColorClass) => {
+                const isTaken = dailyDoses[doseType] && dailyDoses[doseType] > 0;
+                let takenClass = '';
+                if (isTaken) {
+                    if (baseColorClass.includes('green')) takenClass = 'dose-taken-green';
+                    else if (baseColorClass.includes('yellow')) takenClass = 'dose-taken-yellow';
+                    else if (baseColorClass.includes('red')) takenClass = 'dose-taken-red';
+                }
+                // Add disabled attribute if already taken for the day or no quantity left
+                const disabledAttribute = (isTaken || medicine.currentQuantity <= 0) ? 'disabled' : '';
+                const checkmark = isTaken ? ' &#10003;' : ''; // Unicode checkmark
+                return {
+                    classes: `${baseColorClass} hover:${baseColorClass.replace('500', '600')} ${isTaken ? takenClass : ''} text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-${baseColorClass.split('-')[1]}-300 dark:focus:ring-${baseColorClass.split('-')[1]}-700 w-full ${disabledAttribute}`,
+                    text: `${label}${checkmark}`
+                };
+            };
+
+            const getWeeklySummaryHtml = (med) => {
+                const summary = [];
+                for (let i = 6; i >= 0; i--) { // Last 7 days including today
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    const formattedDate = getFormattedDate(date);
+                    const dailyDoses = med.dailyLog[formattedDate] || {
+                        beforeBreakfast: 0,
+                        afterBreakfast: 0,
+                        beforeLunch: 0,
+                        afterLunch: 0,
+                        bedTime: 0
+                    };
+                    const totalDoses = dailyDoses.beforeBreakfast + dailyDoses.afterBreakfast +
+                                       dailyDoses.beforeLunch + dailyDoses.afterLunch + dailyDoses.bedTime;
+                    summary.push({ date: formattedDate, total: totalDoses });
+                }
+                return summary.length > 0 ? `
+                    <ul class="list-none p-0 m-0">
+                        ${summary.map((day, index) => `
+                            <li class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600 last:border-b-0">
+                                <span class="text-gray-700 dark:text-gray-200 font-medium">
+                                    <i class="fas fa-calendar-day mr-2"></i>${day.date === getFormattedDate(new Date()) ? 'Today' : day.date}
+                                </span>
+                                <span class="text-gray-900 dark:text-gray-50 text-lg font-semibold">
+                                    ${day.total} dose${day.total !== 1 ? 's' : ''}
+                                </span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                ` : `
+                    <p class="text-gray-600 dark:text-gray-300">No doses logged yet for this week.</p>
+                `;
+            };
+
+            const beforeBreakfastContent = getDoseButtonContent('beforeBreakfast', 'Before Breakfast', 'bg-green-500');
+            const afterBreakfastContent = getDoseButtonContent('afterBreakfast', 'After Breakfast', 'bg-green-500');
+            const beforeLunchContent = getDoseButtonContent('beforeLunch', 'Before Lunch', 'bg-yellow-500');
+            const afterLunchContent = getDoseButtonContent('afterLunch', 'After Lunch', 'bg-yellow-500');
+            const bedTimeContent = getDoseButtonContent('bedTime', 'Bed Time', 'bg-red-500');
+
+
+            return `
+                <button id="medicine-detail-back-btn" class="absolute top-4 left-4 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-100 font-bold py-2 px-4 rounded-full transition-all duration-200 text-sm md:text-base">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-blue-700 dark:text-blue-400 mb-4 mt-12 md:mt-0"><i class="fas fa-prescription-bottle-alt mr-2"></i>${medicine.name}</h2>
+
+                <div class="mb-6">
+                    <p class="text-lg text-gray-600 dark:text-gray-300 mb-2">Current Pieces:</p>
+                    <p id="current-quantity-display" class="text-6xl font-bold text-blue-600 dark:text-blue-300 transition-colors duration-300">
+                        ${medicine.currentQuantity}
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        Initial: ${medicine.initialQuantity} pieces ${medicine.dosage ? `(${medicine.dosage})` : ''}
+                    </p>
+                    ${typeof medicine.lowStockThreshold === 'number' && medicine.currentQuantity <= medicine.lowStockThreshold ? `
+                        <p class="text-red-600 dark:text-red-400 font-bold mt-2 text-lg animate-pulse">
+                            <span class="text-2xl align-middle">&#9888;</span> Low Stock! Order More!
+                        </p>
+                    ` : ''}
+                </div>
+
+                <div class="text-left bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow-inner mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Medicine Information</h3>
+                    <p class="text-gray-700 dark:text-gray-200"><strong><i class="fas fa-calendar-times mr-2"></i>Expiration Date:</strong> ${medicine.expirationDate || 'N/A'}</p>
+                    <p class="text-gray-700 dark:text-gray-200"><strong><i class="fas fa-calendar-check mr-2"></i>Date Filled:</strong> ${medicine.dateFilled || 'N/A'}</p>
+                    <p class="text-gray-700 dark:text-gray-200"><strong><i class="fas fa-calendar-plus mr-2"></i>Date Started:</strong> ${medicine.dateStarted || 'N/A'}</p>
+                    <p class="text-gray-700 dark:text-gray-200"><strong><i class="fas fa-user-md mr-2"></i>Prescribing Physician:</strong> ${medicine.prescribingPhysician || 'N/A'}</p>
+                    <p class="text-gray-700 dark:text-gray-200"><strong><i class="fas fa-hashtag mr-2"></i>Prescription Number:</strong> ${medicine.prescriptionNumber || 'N/A'}</p>
+                    <p class="text-gray-700 dark:text-gray-200"><strong><i class="fas fa-redo-alt mr-2"></i>No. of Refills:</strong> ${medicine.numberOfRefills !== undefined && medicine.numberOfRefills !== null ? medicine.numberOfRefills : 'N/A'}</p>
+                    <!-- Removed Brand and Low Stock Threshold display -->
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <button data-dose-type="beforeBreakfast" class="dose-button ${beforeBreakfastContent.classes}">
+                        <i class="fas fa-utensils mr-2"></i> ${beforeBreakfastContent.text}
+                    </button>
+                    <button data-dose-type="afterBreakfast" class="dose-button ${afterBreakfastContent.classes}">
+                        <i class="fas fa-utensils mr-2"></i> ${afterBreakfastContent.text}
+                    </button>
+                    <button data-dose-type="beforeLunch" class="dose-button ${beforeLunchContent.classes}">
+                        <i class="fas fa-utensils mr-2"></i> ${beforeLunchContent.text}
+                    </button>
+                    <button data-dose-type="afterLunch" class="dose-button ${afterLunchContent.classes}">
+                        <i class="fas fa-utensils mr-2"></i> ${afterLunchContent.text}
+                    </button>
+                    <button data-dose-type="bedTime" class="dose-button ${bedTimeContent.classes} col-span-full">
+                        <i class="fas fa-bed mr-2"></i> ${bedTimeContent.text}
+                    </button>
+                </div>
+
+                <button id="edit-medicine-detail-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-700 w-full mb-4">
+                    <i class="fas fa-edit mr-2"></i> Edit Medicine Details
+                </button>
+
+                <button id="reset-medicine-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-700 w-full mb-4">
+                    <i class="fas fa-sync-alt mr-2"></i> Reset Medicine (${medicine.initialQuantity})
+                </button>
+
+                <h3 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 mt-8 mb-4">Weekly Monitoring</h3>
+                <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow-inner w-full">
+                    ${getWeeklySummaryHtml(medicine)}
+                </div>
+
+                <button id="delete-medicine-btn" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-300 dark:focus:ring-700 w-full mt-6">
+                    <i class="fas fa-trash-alt mr-2"></i> Delete Medicine
+                </button>
+            `;
+        };
+
+        // --- Data Manipulation Functions ---
+
+        const handleEditGlobalFacility = (newFacilityName, newAddress, newFacilityNumber) => {
+            globalFacilityName = newFacilityName.trim();
+            globalAddress = newAddress.trim();
+            globalFacilityNumber = newFacilityNumber.trim();
+            message = `Facility details updated!`;
+            currentView = 'dashboard'; // Go back to dashboard
+            saveData();
+            renderApp();
+        };
+
+        const handleAddPatient = (name, admissionDate) => {
+            const newPatient = {
+                id: generateUniqueId(),
+                name: name.trim(),
+                admissionDate: admissionDate,
+                medicines: []
+            };
+            patients.push(newPatient);
+            message = `Patient "${name}" added successfully!`;
+            currentView = 'patientList'; // Go back to patient list
+            saveData();
+            renderApp();
+        };
+
+        const handleEditPatient = (patientId, newName, newAdmissionDate) => {
+            const patientIndex = patients.findIndex(p => p.id === patientId);
+            if (patientIndex !== -1) {
+                patients[patientIndex].name = newName.trim();
+                patients[patientIndex].admissionDate = newAdmissionDate;
+
+                if (selectedPatient && selectedPatient.id === patientId) {
+                    selectedPatient.name = newName.trim();
+                    selectedPatient.admissionDate = newAdmissionDate;
+                }
+                message = `Patient name updated to "${newName}"!`;
+                currentView = 'patientDetail'; // Go back to patient detail
+                saveData();
+                renderApp();
+            } else {
+                message = "Patient not found!";
+                renderApp();
+            }
+        };
+
+        const handleDeletePatient = (patientId, patientName) => {
+            patients = patients.filter(p => p.id !== patientId);
+            message = `Patient "${patientName}" deleted.`;
+            selectedPatient = null;
+            currentView = 'patientList'; // Go back to patient list
+            saveData();
+            renderApp();
+        };
+
+        const handleAddMedicine = (name, initialQuantity, dosage, expirationDate, dateFilled, dateStarted, prescribingPhysician, prescriptionNumber, numberOfRefills) => {
+            if (!selectedPatient) {
+                message = "No patient selected. Cannot add medicine.";
+                renderApp();
+                return;
+            }
+            const newMedicine = {
+                id: generateUniqueId(),
+                name: name.trim(),
+                initialQuantity: Number(initialQuantity),
+                currentQuantity: Number(initialQuantity),
+                dosage: dosage.trim(),
+                expirationDate: expirationDate,
+                dateFilled: dateFilled,
+                dateStarted: dateStarted,
+                prescribingPhysician: prescribingPhysician.trim(),
+                prescriptionNumber: prescriptionNumber.trim(),
+                numberOfRefills: numberOfRefills !== '' ? Number(numberOfRefills) : null,
+                // Removed brand and lowStockThreshold from newMedicine object
+                dailyLog: {}
+            };
+            selectedPatient.medicines.push(newMedicine);
+            medicines = selectedPatient.medicines;
+            message = `Medicine "${name}" added for ${selectedPatient.name}!`;
+            currentView = 'patientDetail'; // Go back to patient detail
+            saveData();
+            renderApp();
+        };
+
+        const handleEditMedicine = (medicineId, newName, newInitialQuantity, newDosage, newExpirationDate, newDateFilled, newDateStarted, newPrescribingPhysician, newPrescriptionNumber, newNumberOfRefills) => {
+            if (!selectedPatient) {
+                message = "No patient selected. Cannot edit medicine.";
+                renderApp();
+                return;
+            }
+            const medicineIndex = selectedPatient.medicines.findIndex(m => m.id === medicineId);
+            if (medicineIndex !== -1) {
+                selectedPatient.medicines[medicineIndex].name = newName.trim();
+                selectedPatient.medicines[medicineIndex].initialQuantity = Number(newInitialQuantity);
+                selectedPatient.medicines[medicineIndex].dosage = newDosage.trim();
+                selectedPatient.medicines[medicineIndex].expirationDate = newExpirationDate;
+                selectedPatient.medicines[medicineIndex].dateFilled = newDateFilled;
+                selectedPatient.medicines[medicineIndex].dateStarted = newDateStarted;
+                selectedPatient.medicines[medicineIndex].prescribingPhysician = newPrescribingPhysician.trim();
+                selectedPatient.medicines[medicineIndex].prescriptionNumber = newPrescriptionNumber.trim();
+                selectedPatient.medicines[medicineIndex].numberOfRefills = newNumberOfRefills !== '' ? Number(newNumberOfRefills) : null;
+                // Removed brand and lowStockThreshold updates
+
+                if (selectedMedicineForDetail && selectedMedicineForDetail.id === medicineId) {
+                    selectedMedicineForDetail.name = newName.trim();
+                    selectedMedicineForDetail.initialQuantity = Number(newInitialQuantity);
+                    selectedMedicineForDetail.dosage = newDosage.trim();
+                    selectedMedicineForDetail.expirationDate = newExpirationDate;
+                    selectedMedicineForDetail.dateFilled = newDateFilled;
+                    selectedMedicineForDetail.dateStarted = newDateStarted;
+                    selectedMedicineForDetail.prescribingPhysician = newPrescribingPhysician.trim();
+                    selectedMedicineForDetail.prescriptionNumber = newPrescriptionNumber.trim();
+                    selectedMedicineForDetail.numberOfRefills = newNumberOfRefills !== '' ? Number(newNumberOfRefills) : null;
+                    // Removed brand and lowStockThreshold updates
+                }
+                message = `Medicine "${newName}" updated!`;
+                currentView = 'medicineDetail'; // Go back to medicine detail
+                saveData();
+                renderApp();
+            } else {
+                message = "Medicine not found!";
+                renderApp();
+            }
+        };
+
+        // New: Function to clear all fields in the Edit Medicine form
+        const handleClearEditMedicineFields = () => {
+            document.getElementById('editMedicineName').value = '';
+            document.getElementById('editInitialQuantity').value = '';
+            document.getElementById('editDosage').value = '';
+            document.getElementById('editExpirationDate').value = '';
+            document.getElementById('editDateFilled').value = '';
+            document.getElementById('editDateStarted').value = '';
+            document.getElementById('editPrescribingPhysician').value = '';
+            document.getElementById('editPrescriptionNumber').value = '';
+            document.getElementById('editNumberOfRefills').value = '';
+            message = "Edit medicine fields cleared!";
+            // No need to save data as we're just clearing the form, not changing the underlying data
+            // Re-render to clear any previous messages and re-attach flatpickr
+            renderApp();
+        };
+
+        const handleTakeDose = (medicineId, doseType) => {
+            if (!selectedPatient) {
+                message = "No patient selected. Cannot take dose.";
+                renderApp();
+                return;
+            }
+
+            const medicineIndex = selectedPatient.medicines.findIndex(med => med.id === medicineId);
+            if (medicineIndex === -1) {
+                message = "Medicine not found!";
+                renderApp();
+                return;
+            }
+
+            const medicineToUpdate = selectedPatient.medicines[medicineIndex];
+            if (medicineToUpdate.currentQuantity <= 0) {
+                message = "No medicine left!";
+                renderApp();
+                return;
+            }
+
+            // Check if dose has already been taken for this doseType today
+            const today = getFormattedDate(new Date());
+            const dailyDoses = medicineToUpdate.dailyLog[today] || {};
+            if (dailyDoses[doseType] && dailyDoses[doseType] > 0) {
+                message = `Dose for ${doseType.replace(/([A-Z])/g, ' $1').toLowerCase()} already logged for today!`;
+                renderApp();
+                return;
+            }
+
+            const newQuantity = medicineToUpdate.currentQuantity - 1;
+            const updatedDailyLog = { ...medicineToUpdate.dailyLog };
+
+            if (!updatedDailyLog[today]) {
+                updatedDailyLog[today] = {
+                    beforeBreakfast: 0,
+                    afterBreakfast: 0,
+                    beforeLunch: 0,
+                    afterLunch: 0,
+                    bedTime: 0
+                };
+            }
+            updatedDailyLog[today][doseType] = (updatedDailyLog[today][doseType] || 0) + 1;
+
+            medicineToUpdate.currentQuantity = newQuantity;
+            medicineToUpdate.dailyLog = updatedDailyLog;
+
+            // Trigger flash effect
+            const quantityDisplay = document.getElementById('current-quantity-display');
+            if (quantityDisplay) {
+                quantityDisplay.classList.add('quantity-flash');
+                setTimeout(() => {
+                    quantityDisplay.classList.remove('quantity-flash');
+                }, 300); // Remove flash class after 300ms
+            }
+
+            message = `Dose taken for ${doseType.replace(/([A-Z])/g, ' $1').toLowerCase()} of ${medicineToUpdate.name} for ${selectedPatient.name}!`;
+            saveData();
+            renderApp(); // Re-render to update weekly summary and button styles
+        };
+
+        const handleResetMedicine = (medicineId) => {
+            if (!selectedPatient) {
+                message = "No patient selected. Cannot reset medicine.";
+                renderApp();
+                return;
+            }
+
+            const medicineIndex = selectedPatient.medicines.findIndex(med => med.id === medicineId);
+            if (medicineIndex === -1) {
+                message = "Medicine not found!";
+                renderApp();
+                return;
+            }
+
+            const medicineToReset = selectedPatient.medicines[medicineIndex];
+            medicineToReset.currentQuantity = medicineToReset.initialQuantity;
+            medicineToReset.dailyLog = {}; // Clear the daily log on reset
+
+            message = `Medicine "${medicineToReset.name}" reset to ${medicineToReset.initialQuantity} pieces for ${selectedPatient.name}!`;
+            saveData();
+            renderApp();
+        };
+
+        const handleDeleteMedicine = (medicineId, medicineName) => {
+            if (!selectedPatient) {
+                message = "No patient selected. Cannot delete medicine.";
+                renderApp();
+                return;
+            }
+            selectedPatient.medicines = selectedPatient.medicines.filter(m => m.id !== medicineId);
+            medicines = selectedPatient.medicines; // Update local medicines array
+            message = `Medicine "${medicineName}" deleted for ${selectedPatient.name}.`;
+            selectedMedicineForDetail = null; // Go back to patient's medicine list
+            currentView = 'patientDetail'; // Ensure we go back to patient detail view
+            saveData();
+            renderApp();
+        };
+
+        // --- Print Functionality ---
+        const handlePrintMedicationList = (patient, printType, baseFontSize, weeklyStartDateStr = null) => {
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                showCustomConfirm('Please allow pop-ups for printing.');
+                return;
+            }
+
+            const today = new Date();
+            const doseTimes = [
+                { key: 'beforeBreakfast', label: 'Before Breakfast' },
+                { key: 'afterBreakfast', label: 'After Breakfast' },
+                { key: 'beforeLunch', label: 'Before Lunch' },
+                { key: 'afterLunch', label: 'After Lunch' },
+                { key: 'bedTime', label: 'Bed Time' }
+            ];
+
+            let datesToDisplay = [];
+            let tableHeaders = '';
+            let printTitleSuffix = '';
+            let monthlyReportMonthYear = ''; // New variable for monthly report month/year
+
+            if (printType === 'weekly') {
+                let startDateForWeek = new Date(weeklyStartDateStr);
+                // Calculate the Monday of the week for the selected start date
+                // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                const dayOfWeek = startDateForWeek.getDay();
+                const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Adjust if Sunday, otherwise Monday is day 1
+                startDateForWeek.setDate(startDateForWeek.getDate() - diff); // Set to Monday of that week
+
+                const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(startDateForWeek);
+                    date.setDate(startDateForWeek.getDate() + i);
+                    datesToDisplay.push({
+                        name: weekDays[i],
+                        formattedDate: getFormattedDate(date),
+                        date: date // Store the Date object here
+                    });
+                }
+                // Use the stored Date objects for the title suffix
+                printTitleSuffix = `(Weekly: ${getFormattedDate(datesToDisplay[0].date)} - ${getFormattedDate(datesToDisplay[6].date)})`;
+                // Adjusted width for date columns
+                tableHeaders = datesToDisplay.map(day => `<th style="width: ${85 / datesToDisplay.length}%; font-size: ${baseFontSize * 1.1}pt;">${day.name}<br><span style="font-weight: normal; font-size: ${baseFontSize * 0.8}pt;">(${day.formattedDate.substring(5)})</span></th>`).join('');
+
+            } else if (printType === 'monthly') {
+                const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+                for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d.setDate(d.getDate() + 1)) {
+                    datesToDisplay.push({
+                        name: d.getDate(), // Just the day number
+                        formattedDate: getFormattedDate(d)
+                    });
+                }
+                // Removed printTitleSuffix for monthly report, will add it under admission date
+                monthlyReportMonthYear = today.toLocaleString('default', { month: 'long', year: 'numeric' });
+                // For monthly view, days might be too many for full names. Use day numbers.
+                tableHeaders = datesToDisplay.map(day => `<th style="width: ${80 / datesToDisplay.length}%; font-size: ${baseFontSize * 0.7}pt;">${day.name}</th>`).join('');
+            }
+
+
+            let medicinesTableRows = '';
+            if (patient.medicines && patient.medicines.length > 0) {
+                medicinesTableRows = patient.medicines.map((med, index) => {
+                    let medicineRows = `
+                        <tr>
+                            <td colspan="${datesToDisplay.length + 1}" style="font-weight: bold; padding-top: 15px; background-color: #e6e6e6; font-size: ${baseFontSize * 1.2}pt;">
+                                ${index + 1}. ${med.name}
+                                <br><span style="font-weight: normal; font-size: ${baseFontSize * 0.9}pt;">Dosage: ${med.dosage || 'N/A'}</span>
+                                <br><span style="font-weight: normal; font-size: ${baseFontSize * 0.8}pt;">Exp. Date: ${med.expirationDate || 'N/A'} | Filled: ${med.dateFilled || 'N/A'} | Started: ${med.dateStarted || 'N/A'}</span>
+                                <br><span style="font-weight: normal; font-size: ${baseFontSize * 0.8}pt;">Physician: ${med.prescribingPhysician || 'N/A'} | Rx #: ${med.prescriptionNumber || 'N/A'} | Refills: ${med.numberOfRefills !== undefined && med.numberOfRefills !== null ? med.numberOfRefills : 'N/A'}</span>
+                            </td>
+                        </tr>
+                    `;
+                    doseTimes.forEach(dose => {
+                        medicineRows += `
+                            <tr>
+                                <td style="padding-left: 20px; font-size: ${printType === 'monthly' ? baseFontSize * 0.8 : baseFontSize}pt;">${dose.label}:</td>
+                                ${datesToDisplay.map(day => {
+                                    const dailyLogEntry = med.dailyLog[day.formattedDate] || {};
+                                    const isTaken = dailyLogEntry[dose.key] && dailyLogEntry[dose.key] > 0;
+                                    // Remove brackets for monthly print, keep for weekly if applicable
+                                    const displayContent = printType === 'monthly' ? (isTaken ? 'X' : '&nbsp;&nbsp;') : `[ ${isTaken ? 'X' : '&nbsp;&nbsp;'} ]`;
+                                    return `<td class="dose-status" style="font-size: ${printType === 'monthly' ? baseFontSize * 0.9 : baseFontSize}pt;">${displayContent}</td>`;
+                                }).join('')}
+                            </tr>
+                        `;
+                    });
+                    return medicineRows;
+                }).join('');
+            } else {
+                medicinesTableRows = `<tr><td colspan="${datesToDisplay.length + 1}" style="text-align: center; padding: 20px; font-size: ${baseFontSize}pt;">No medicines recorded for this patient.</td></tr>`;
+            }
+
+
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Medication Schedule for ${patient.name} ${printTitleSuffix}</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; margin: 20px; color: #1f2937; }
+                        .printable-content { width: 100%; max-width: 800px; margin: 0 auto; }
+                        h1 { font-size: ${baseFontSize * 2}pt; color: #1f2937; margin-bottom: 5px; text-align: center; }
+                        p { font-size: ${baseFontSize}pt; margin-bottom: 2px; text-align: center; }
+                        .patient-info { margin-top: 20px; margin-bottom: 20px; border: 1px solid #eee; padding: 10px; border-radius: 5px; }
+                        .patient-info p { text-align: left; margin-bottom: 5px; font-size: ${baseFontSize * 1.1}pt; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+                        th, td { border: 1px solid #ccc; padding: 6px; text-align: left; vertical-align: top; word-wrap: break-word; }
+                        th { background-color: #f2f2f2; font-weight: bold; font-size: ${baseFontSize * 1.1}pt; white-space: nowrap; } /* Apply white-space: nowrap here */
+                        .medicine-name-row td { background-color: #e6e6e6; font-weight: bold; padding-top: 15px; }
+                        .dose-time-row td:first-child { padding-left: 20px; }
+                        .dose-status { white-space: nowrap; text-align: center; } /* New: Ensure dose status stays on one line and is centered */
+                        .footer { margin-top: 30px; font-size: ${baseFontSize * 0.8}pt; text-align: right; }
+                        .legend { margin-top: 20px; font-size: ${baseFontSize * 0.9}pt; text-align: left; }
+                    </style>
+                </head>
+                <body>
+                    <div class="printable-content">
+                        <h1>${globalFacilityName || 'Patient Medicine Monitor'} ${printTitleSuffix}</h1>
+                        ${globalAddress ? `<p>Address: ${globalAddress}</p>` : ''}
+                        ${globalFacilityNumber ? `<p>FN: ${globalFacilityNumber}</p>` : ''}
+                        <br>
+                        <p style="text-align: left; font-size: ${baseFontSize * 1.2}pt; font-weight: bold;">Name of the patient: ${patient.name}</p>
+                        <p style="text-align: left; font-size: ${baseFontSize}pt;">Admission Date: ${patient.admissionDate || 'N/A'}</p>
+                        ${monthlyReportMonthYear ? `<p style="text-align: left; font-size: ${baseFontSize}pt; font-weight: bold;">Month: ${monthlyReportMonthYear}</p>` : ''}
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 15%;">Medication</th> <!-- Adjusted width for Medication column -->
+                                    ${tableHeaders}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${medicinesTableRows}
+                            </tbody>
+                        </table>
+
+                        <div class="legend">
+                            <p><strong>Legend:</strong></p>
+                            <p>X : Dose Taken</p>
+                            <p>&nbsp;&nbsp; : Dose Not Taken</p>
+                        </div>
+
+                        <p class="footer">Printed on: ${getFormattedDate(new Date())}</p>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+        };
+
+
+        // Initial application setup
+        const initApp = () => {
+            loadData(); // Load data from local storage
+            applyDarkMode(isDarkMode); // Apply dark mode immediately on load
+
+            // Add sample data ONLY if no patients are loaded from local storage
+            if (patients.length === 0) {
+                const today = new Date();
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(today.getDate() - 7);
+                const eightWeeksFromNow = new Date(); // Extend sample data further into the future
+                eightWeeksFromNow.setDate(today.getDate() + 56);
+
+
+                const samplePatientId = generateUniqueId();
+                const sampleMedicine1Id = generateUniqueId();
+                const sampleMedicine2Id = generateUniqueId();
+
+                // Generate daily log for a wider range (past week to eight weeks from now) for sample medicines
+                const generateSampleDailyLog = () => {
+                    const log = {};
+                    const doseTimesKeys = ['beforeBreakfast', 'afterBreakfast', 'beforeLunch', 'afterLunch', 'bedTime'];
+                    const startDate = new Date(oneWeekAgo); // Start from a week ago
+                    const endDate = new Date(eightWeeksFromNow); // Go up to eight weeks from now
+
+                    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                        const formattedDate = getFormattedDate(d);
+                        log[formattedDate] = {};
+                        doseTimesKeys.forEach(key => {
+                            // Simulate some doses taken, some not
+                            if (Math.random() > 0.3) { // ~70% chance of taking a dose
+                                log[formattedDate][key] = 1;
+                            } else {
+                                log[formattedDate][key] = 0;
+                            }
+                        });
+                    }
+                    return log;
+                };
+
+                patients.push({
+                    id: samplePatientId,
+                    name: "Alice Smith",
+                    admissionDate: getFormattedDate(oneWeekAgo),
+                    medicines: [
+                        {
+                            id: sampleMedicine1Id,
+                            name: "Amoxicillin",
+                            initialQuantity: 50,
+                            currentQuantity: 50 - (7 * 3), // Example reduction
+                            dosage: "250mg capsule",
+                            expirationDate: "2026-12-31",
+                            dateFilled: "2025-07-01",
+                            dateStarted: getFormattedDate(oneWeekAgo),
+                            prescribingPhysician: "Dr. John Doe",
+                            prescriptionNumber: "RX12345",
+                            numberOfRefills: 2,
+                            dailyLog: generateSampleDailyLog() // Use the updated log generation
+                        },
+                        {
+                            id: sampleMedicine2Id,
+                            name: "Ibuprofen",
+                            initialQuantity: 30,
+                            currentQuantity: 30 - (7 * 2), // Example reduction
+                            dosage: "200mg tablet",
+                            expirationDate: "2027-06-15",
+                            dateFilled: "2025-07-05",
+                            dateStarted: getFormattedDate(oneWeekAgo),
+                            prescribingPhysician: "Dr. Jane Smith",
+                            prescriptionNumber: "RX67890",
+                            numberOfRefills: 1,
+                            dailyLog: generateSampleDailyLog() // Use the updated log generation
+                        }
+                    ]
+                });
+
+                // Set a default global facility name if not already set
+                if (!globalFacilityName) {
+                    globalFacilityName = "Sample Medical Center";
+                    globalAddress = "123 Health Lane, Wellness City";
+                    globalFacilityNumber = "555-123-4567";
+                }
+
+                saveData(); // Save the sample data to local storage
+            }
+
+            isAppReady = true; // Mark app as ready
+            renderApp(); // Initial render
+        };
+
+        window.onload = initApp;
+
+    </script>
+</body>
+</html>
